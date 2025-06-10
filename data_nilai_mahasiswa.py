@@ -20,6 +20,14 @@ GENDER_OPTIONS = {'1': "Laki - Laki", '2': "Perempuan"}
 METHOD_OPTIONS = {'1': "Online", '2': "On Campus"}
 SCHEDULE_OPTIONS = {'1': "Office Hours", '2': "After Hours"}
 
+
+def validate_alpha_only(value):
+    if not value.strip():
+        return False
+    if not value.replace(" ", "").isalpha():
+        return False
+    return True
+
 def validate_not_empty(input_str):
     return input_str != ""
 
@@ -38,17 +46,55 @@ def validate_modul_score(input_str):
 def validate_yes_no(input_str):
     return input_str.lower() in ['y', 'n']
 
-def get_table_width(rows):
-    table_str = tabulate(rows, headers=HEADERS, tablefmt="simple", colalign=['center'] * len(HEADERS))
+def get_table_width(rows, headers=None, tablefmt="simple", colalign=None):
+    if headers is None:
+        headers = []
+    if colalign is None:
+        colalign = ['center'] * len(headers) if headers else []
+    
+    table_str = tabulate(rows, headers=headers, tablefmt=tablefmt, colalign=colalign)
     return max(len(line) for line in table_str.splitlines())
+
+def display_menu(title, menu_items, header=("No.", "Pilihan")):
+    menu_table = []
+    for i, item in enumerate(menu_items, 1):
+        menu_table.append([i, item])
+    
+    table_width = get_table_width(menu_table, headers=[header[0], header[1]], tablefmt="grid", colalign=("center", "center"))
+    
+    centered_title = f"===== {title} =====".center(table_width)
+    
+    print("\n" + centered_title)
+    print(tabulate(menu_table, headers=[header[0], header[1]], tablefmt="grid", colalign=("center", "center")))
+    print("=" * table_width)
 
 def tampilkan_data(rows):
     if rows:
-        table_width = get_table_width(rows)
+        table_width = get_table_width(rows, headers=HEADERS, tablefmt="grid", colalign=['center'] * len(HEADERS))
         print("\n" + "===== Data Mahasiswa =====".center(table_width))
-        print(tabulate(rows, headers=HEADERS, tablefmt="simple", colalign=['center'] * len(HEADERS)))
+        print(tabulate(rows, headers=HEADERS, tablefmt="grid", colalign=['center'] * len(HEADERS)))
     else:
-        print("Data tidak ditemukan berdasarkan kriteria pencarian!\n")
+        print("Data tidak ditemukan berdasarkan kriteria pencarian!")
+
+def display_options(title, options):
+    menu_table = []
+
+    if isinstance(options, dict):
+        for key, value in options.items():
+            menu_table.append([key, value])
+    else:
+        for i, option in enumerate(options, 1):
+            menu_table.append([i, option])
+
+    headers = ["No.", "Deskripsi"]
+
+    table_width = get_table_width(menu_table, headers=headers, tablefmt="grid", colalign=("center", "center"))
+
+    centered_title = f"===== {title} =====".center(table_width)
+
+    print("\n" + centered_title)
+    print(tabulate(menu_table, headers=headers, tablefmt="grid", colalign=("center", "center")))
+    print("=" * table_width)
 
 def input_valid(prompt, validator, error_msg, existing_nims=None, min_val=None, max_val=None):
     while True:
@@ -64,27 +110,22 @@ def input_valid(prompt, validator, error_msg, existing_nims=None, min_val=None, 
         print(f"{error_msg}!")
 
 def input_pilihan(prompt, pilihan_dict):
+    display_options(prompt, pilihan_dict)
     while True:
-        print(prompt)
-        for k, v in pilihan_dict.items():
-            print(f"{k}. {v}")
         pilih = input("Masukkan pilihan: ").strip()
         if pilih in pilihan_dict:
             return pilihan_dict[pilih]
         print("Pilihan tidak valid!")
 
 def input_program(prompt):
-    print("\nPilihan Program:")
-    for i, prog in enumerate(PROGRAM_LIST, 1):
-        print(f"{i}. {prog}")
-    
+    display_options("Pilihan Program", PROGRAM_LIST)
     return PROGRAM_LIST[int(input_valid(
-    prompt,
-    validate_digit_range,
-    f"Masukkan nomor 1 sampai {len(PROGRAM_LIST)}",
-    min_val=1,
-    max_val=len(PROGRAM_LIST)
-)) - 1]
+        "Masukkan nomor program pilihan: ",
+        validate_digit_range,
+        f"Masukkan nomor 1 sampai {len(PROGRAM_LIST)}",
+        min_val=1,
+        max_val=len(PROGRAM_LIST)
+    )) - 1]
 
 def input_modul(nomor):
     return int(input_valid(
@@ -117,18 +158,22 @@ def input_mahasiswa(data_mahasiswa):
         existing_nims=data_mahasiswa.keys()
     )
 
-    nama = input_valid("Masukkan Nama: ", validate_not_empty, "Nama tidak boleh kosong")
-    gender = input_pilihan("\nPilih Gender:", GENDER_OPTIONS)
-    program = input_program("Masukkan nomor program pilihan: ")
+    nama = input_valid(
+    "Masukkan Nama: ",
+    validate_alpha_only,
+    "Nama tidak boleh kosong dan hanya boleh berisi huruf"
+)
+    gender = input_pilihan("Pilih Gender:", GENDER_OPTIONS)
+    program = input_program("")
     
     angkatan = int(input_valid(
-        "\nMasukkan Angkatan (4 digit, contoh 2023): ",
+        "Masukkan Angkatan (4 digit, contoh 2023): ",
         validate_four_digits,
         "Angkatan harus berupa angka 4 digit"
     ))
 
-    metode_belajar = input_pilihan("\nPilih Metode Belajar:", METHOD_OPTIONS)
-    jadwal = input_pilihan("\nPilih Jadwal:", SCHEDULE_OPTIONS)
+    metode_belajar = input_pilihan("Pilih Metode Belajar:", METHOD_OPTIONS)
+    jadwal = input_pilihan("Pilih Jadwal:", SCHEDULE_OPTIONS)
 
     print("")
     modul_1 = input_modul(1)
@@ -160,10 +205,12 @@ def report_data(data_mahasiswa):
     }
 
     while True:
-        print("\n+++++++ Menu Report Data Siswa +++++++")
-        print("1. Report Seluruh Data")
-        print("2. Report Data Tertentu")
-        print("3. Kembali Ke Menu Utama")
+        menu_items = [
+            "Report Seluruh Data",
+            "Report Data Tertentu",
+            "Kembali Ke Menu Utama"
+        ]
+        display_menu("Menu Report Data Siswa", menu_items)
         pilihan = input("Silakan Pilih Sub Menu Read Data [1-3]: ").strip()
 
         if pilihan == '1':
@@ -171,11 +218,9 @@ def report_data(data_mahasiswa):
             tampilkan_data(rows)
 
         elif pilihan == '2':
-            print("\nCari berdasarkan:")
-            for key, val in kolom_dict.items():
-                print(f"{key}. {val.capitalize().replace('_', ' ')}")
-
-            kolom_pilih = input("Pilih kolom pencarian [1-7]: ").strip()
+            kolom_options = {k: v.capitalize().replace('_', ' ') for k, v in kolom_dict.items()}
+            display_options("Cari Berdasarkan", kolom_options)
+            kolom_pilih = input("\nPilih kolom pencarian [1-7]: ").strip()
 
             if kolom_pilih not in kolom_dict:
                 print("Pilihan kolom tidak valid!\n")
@@ -192,7 +237,7 @@ def report_data(data_mahasiswa):
                 keyword = keyword.replace(" ", "").lower()
             
             elif kolom == 'program':
-                keyword = input_program("Masukkan nomor program: ")
+                keyword = input_program("")
                 keyword = keyword.replace(" ", "").lower()
             
             elif kolom == 'angkatan':
@@ -234,8 +279,11 @@ def report_data(data_mahasiswa):
 
 def add_data(data_mahasiswa):
     while True:
-        print("+++++++ Menu Add Data Siswa +++++++")
-        print("1. Tambah Data\n2. Kembali ke Menu Utama")
+        menu_items = [
+            "Tambah Data",
+            "Kembali ke Menu Utama"
+        ]
+        display_menu("Menu Add Data Siswa", menu_items)
         pilihan = input("Masukkan pilihan [1-2]: ").strip()
 
         if pilihan == '1':
@@ -261,9 +309,11 @@ def add_data(data_mahasiswa):
 
 def update_data(data_mahasiswa):
     while True:
-        print("\n+++++++ Menu Update Data Siswa +++++++")
-        print("1. Ubah Data Mahasiswa")
-        print("2. Kembali ke Menu Utama")
+        menu_items = [
+            "Ubah Data Mahasiswa",
+            "Kembali ke Menu Utama"
+        ]
+        display_menu("Menu Update Data Siswa", menu_items)
         choice = input("Masukkan pilihan [1-2]: ").strip()
 
         if choice == '2':
@@ -300,9 +350,7 @@ def update_data(data_mahasiswa):
             '8': ('Modul 2', 'modul_2'),
             '9': ('Modul 3', 'modul_3')
         }
-        for k, v in kolom_options.items():
-            print(f"{k}. {v[0]}")
-
+        display_options("Pilihan Kolom", [v[0] for v in kolom_options.values()])
         kolom_choice = input("\nMasukkan nomor kolom: ").strip()
         if kolom_choice not in kolom_options:
             print("Pilihan tidak valid!\n")
@@ -316,7 +364,7 @@ def update_data(data_mahasiswa):
         elif kolom_key == 'gender':
             new_value = input_pilihan("Pilih Gender baru:", GENDER_OPTIONS)
         elif kolom_key == 'program':
-            new_value = input_program("Masukkan nomor program baru: ")
+            new_value = input_program("")
         elif kolom_key == 'angkatan':
             new_value = int(input_valid("Masukkan Angkatan baru (4 digit): ",
                                         validate_four_digits,
@@ -340,11 +388,13 @@ def update_data(data_mahasiswa):
 
 def delete_data(data_mahasiswa):
     while True:
-        print("\n+++++++ Menu Hapus Data Siswa +++++++")
-        print("1. Hapus berdasarkan NIM")
-        print("2. Hapus berdasarkan Nama")
-        print("3. Hapus berdasarkan Kriteria")
-        print("4. Kembali ke menu utama")
+        menu_items = [
+            "Hapus berdasarkan NIM",
+            "Hapus berdasarkan Nama",
+            "Hapus berdasarkan Kriteria",
+            "Kembali ke menu utama"
+        ]
+        display_menu("Menu Hapus Data Siswa", menu_items)
         choice = input("Pilih opsi [1-4]: ").strip()
 
         if choice == '4':
@@ -401,46 +451,41 @@ def delete_data(data_mahasiswa):
                 print(">> Penghapusan dibatalkan.\n")
 
         else:  
-            print("\nPilih kriteria penghapusan:")
             kriteria_options = {
-                '1': ('Gender', GENDER_OPTIONS),
-                '2': ('Program', {str(i): p for i, p in enumerate(PROGRAM_LIST, 1)}),
-                '3': ('Angkatan', None),
-                '4': ('Metode Belajar', METHOD_OPTIONS),
-                '5': ('Jadwal', SCHEDULE_OPTIONS)
+                '1': "Gender",
+                '2': "Program",
+                '3': "Angkatan",
+                '4': "Metode Belajar",
+                '5': "Jadwal"
             }
-
-            for k, v in kriteria_options.items():
-                print(f"{k}. {v[0]}")
-
+            display_options("Kriteria Penghapusan", kriteria_options)
             kriteria_choice = input("\nMasukkan nomor kriteria: ").strip()
             if kriteria_choice not in kriteria_options:
                 print("Pilihan tidak valid! Masukkan anggka 1 hingga 5.\n")
                 continue
 
-            kriteria_name, options = kriteria_options[kriteria_choice]
+            kriteria_name = kriteria_options[kriteria_choice]
             key_map = {
-                'Gender': 'gender',
-                'Program': 'program',
-                'Angkatan': 'angkatan',
-                'Metode Belajar': 'metode_belajar',
-                'Jadwal': 'jadwal'
+                "Gender": 'gender',
+                "Program": 'program',
+                "Angkatan": 'angkatan',
+                "Metode Belajar": 'metode_belajar',
+                "Jadwal": 'jadwal'
             }
             key = key_map[kriteria_name]
 
-            if options:
-                print(f"\nPilih {kriteria_name}:")
-                for k, v in options.items():
-                    print(f"{k}. {v}")
-                value_choice = input("Masukkan pilihan: ").strip()
-                if value_choice not in options:
-                    print("Pilihan tidak valid!\n")
-                    continue
-                value = options[value_choice]
-            else:  
+            if kriteria_name == "Gender":
+                value = input_pilihan(f"Pilih {kriteria_name}:", GENDER_OPTIONS)
+            elif kriteria_name == "Program":
+                value = input_program(f"Masukkan nomor {kriteria_name}: ")
+            elif kriteria_name == "Angkatan":
                 value = int(input_valid(f"Masukkan {kriteria_name} (4 digit): ",
                                         validate_four_digits,
                                         "Harus angka 4 digit"))
+            elif kriteria_name == "Metode Belajar":
+                value = input_pilihan(f"Pilih {kriteria_name}:", METHOD_OPTIONS)
+            else:
+                value = input_pilihan(f"Pilih {kriteria_name}:", SCHEDULE_OPTIONS)
 
             to_delete = []
             for nim, data in data_mahasiswa.items():
@@ -519,13 +564,14 @@ def main_menu():
     }
 
     while True:
-        print("=" * 10 + "Data Record Siswa Purwadhika" + "=" * 10)
-        print("1. Report Data Siswa")
-        print("2. Menambahkan Data Siswa")
-        print("3. Mengubah Data Siswa")
-        print("4. Menghapus Data Siswa")
-        print("5. Exit" + "\n")
-        
+        menu_items = [
+            "Report Data Siswa",
+            "Menambahkan Data Siswa",
+            "Mengubah Data Siswa",
+            "Menghapus Data Siswa",
+            "Exit"
+        ]
+        display_menu("Data Record Siswa Purwadhika", menu_items)
         pilihan = input("Silakan Pilih Main_Menu [1-5] : ")
 
         if pilihan == '1':
